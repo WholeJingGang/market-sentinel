@@ -1,9 +1,11 @@
-name: Hourly Market Sentinel
+name: Market Sentinel (Pre-Market)
 
 on:
   schedule:
-    # Runs at minute 0 of every hour
-    - cron: '0 * * * *'
+    # Runs at minute 0 of hours 12, 13, and 14 UTC
+    # (Which is 8 PM, 9 PM, 10 PM Singapore Time)
+    # Mon-Fri (1-5)
+    - cron: '0 12-14 * * 1-5'
   workflow_dispatch: # Allows manual testing
 
 jobs:
@@ -17,7 +19,8 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.11'  # <--- CHANGED FROM 3.9 TO 3.11
+        # We stick to 3.11 to avoid the "Type Union" crash
+        python-version: '3.11'
 
     - name: Install dependencies
       run: |
