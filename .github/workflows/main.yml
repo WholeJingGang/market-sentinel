@@ -1,11 +1,10 @@
-name: Daily Market Sentinel
+name: Hourly Market Sentinel
 
 on:
   schedule:
-    # Runs at 14:00 UTC (10:00 PM Singapore Time)
-    # Mon-Fri only (1-5)
-    - cron: '0 14 * * 1-5'
-  workflow_dispatch: # Allows manual testing button
+    # Runs at minute 0 of every hour
+    - cron: '0 * * * *'
+  workflow_dispatch: # Allows manual testing
 
 jobs:
   run_script:
@@ -20,10 +19,11 @@ jobs:
       with:
         python-version: '3.9'
 
+    # --- THE FIX IS HERE ---
+    # We install yfinance directly, no text file needed.
     - name: Install dependencies
       run: |
-        pip install -r requirements.txt
-        pip install --upgrade yfinance
+        pip install yfinance requests
 
     - name: Run Sentinel
       env:
