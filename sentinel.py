@@ -9,7 +9,7 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
 # ⚙️ STRATEGY SETTINGS
-TARGET_DTE = 45  # Target days to expiration
+TARGET_DTE = 45      # Weekly Rung Strategy (45 Days)
 SAFETY_FACTOR = 1.0  # 1.0 = ~15 Delta (Aggressive), 1.3 = ~10 Delta (Safe)
 
 def send_alert(message):
@@ -52,15 +52,10 @@ def run_analysis():
     call_strike = 5 * round((spx + expected_range) / 5)
     put_strike = 5 * round((spx - expected_range) / 5)
 
-    # 4. CALCULATE EXACT EXPIRY DATE
-    # Add 45 days to today
+    # 4. CALCULATE EXACT EXPIRY DATE (Friday)
     future_date = datetime.now() + timedelta(days=TARGET_DTE)
-    # Find the Friday of that week (0=Mon, 4=Fri)
-    # We calculate the difference between Friday (4) and the future_date's weekday
     days_to_friday = (4 - future_date.weekday())
     expiry_date = future_date + timedelta(days=days_to_friday)
-    
-    # Format: "13 Feb 2026 (Friday)"
     formatted_expiry = expiry_date.strftime("%d %b %Y (%A)")
 
     # 5. DECISION LOGIC
@@ -77,12 +72,16 @@ def run_analysis():
         decision = "⚠️ CAUTION"
         reason = "Fed News detected. Check calendar."
 
-    # 6. BUILD REPORT
+    # 6. BUILD REPORT (Includes Phase 1 Checks)
     msg = (
         f"🦅 **SENTINEL: 15 DELTA ({TARGET_DTE} DTE)**\n"
         f"-----------------------------\n"
         f"🚦 **DECISION: {decision}**\n"
         f"Reason: {reason}\n"
+        f"-----------------------------\n"
+        f"👮 **PHASE 1: HUMAN CHECKS**\n"
+        f"1. **Trend:** Is SPX > 200 SMA? (Bullish)\n"
+        f"2. **Holiday:** Is market open tomorrow?\n"
         f"-----------------------------\n"
         f"📉 **MARKET DATA**\n"
         f"SPX: {spx:.2f} | VIX: {vix:.2f}\n"
@@ -93,6 +92,9 @@ def run_analysis():
         f"-----------------------------\n"
         f"🗓️ **EXPIRY TARGET:**\n"
         f"👉 {formatted_expiry}\n"
+        f"-----------------------------\n"
+        f"🗞️ **RISK SCAN**\n"
+        f"{chr(10).join(danger_headlines) if danger_headlines else '• No immediate Fed/CPI threats.'}"
     )
     
     send_alert(msg)
