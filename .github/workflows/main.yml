@@ -17,10 +17,8 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: '3.11'  # <--- CHANGED FROM 3.9 TO 3.11
 
-    # --- THE FIX IS HERE ---
-    # We install yfinance directly, no text file needed.
     - name: Install dependencies
       run: |
         pip install yfinance requests
