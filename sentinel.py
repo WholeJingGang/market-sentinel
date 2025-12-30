@@ -2,16 +2,15 @@ import yfinance as yf
 import requests
 import math
 import os
+from datetime import datetime, timedelta
 
 # --- CONFIGURATION ---
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
 # ⚙️ STRATEGY SETTINGS
-# Change this to 45 for "Weekly Rung" Strategy
-TARGET_DTE = 45  
-# Multiplier: 1.0 = 16 Delta (Aggressive), 1.3 = 10 Delta (Safe), 2.0 = 5 Delta (Ultra Safe)
-SAFETY_FACTOR = 1.3 
+TARGET_DTE = 45  # Target days to expiration
+SAFETY_FACTOR = 1.0  # 1.0 = ~15 Delta (Aggressive), 1.3 = ~10 Delta (Safe)
 
 def send_alert(message):
     if not TELEGRAM_TOKEN or not CHAT_ID:
@@ -46,36 +45,41 @@ def run_analysis():
         if any(key in title for key in fed_keywords):
             danger_headlines.append(f"• {item.get('title')}")
 
-    # 3. CALCULATE STRIKES (The Fix)
-    # Volatility scales with square root of time
+    # 3. CALCULATE STRIKES (15 Delta Logic)
     time_factor = math.sqrt(TARGET_DTE / 365)
-    
-    # Expected Move = Price * (VIX/100) * sqrt(Days/365)
-    # We multiply by SAFETY_FACTOR (1.3) to get ~10 Delta
     expected_range = spx * (vix/100) * time_factor * SAFETY_FACTOR
     
     call_strike = 5 * round((spx + expected_range) / 5)
     put_strike = 5 * round((spx - expected_range) / 5)
 
-    # 4. DECISION LOGIC (Tweaked for 45 DTE)
+    # 4. CALCULATE EXACT EXPIRY DATE
+    # Add 45 days to today
+    future_date = datetime.now() + timedelta(days=TARGET_DTE)
+    # Find the Friday of that week (0=Mon, 4=Fri)
+    # We calculate the difference between Friday (4) and the future_date's weekday
+    days_to_friday = (4 - future_date.weekday())
+    expiry_date = future_date + timedelta(days=days_to_friday)
+    
+    # Format: "13 Feb 2026 (Friday)"
+    formatted_expiry = expiry_date.strftime("%d %b %Y (%A)")
+
+    # 5. DECISION LOGIC
     decision = "✅ GO"
     reason = "Conditions Optimal"
     
-    # For 45 DTE, we are less scared of 1-day events, but VIX levels matter more
     if vix < 11.0:
         decision = "⛔ NO GO"
-        reason = "VIX too low (<11). Not enough premium for 45 days."
+        reason = "VIX too low (<11). Not enough premium."
     elif vix > 30:
         decision = "⛔ NO GO"
         reason = "VIX Extreme (>30). Wait for volatility crush."
-    elif len(danger_headlines) > 0 and TARGET_DTE < 5:
-        # Only block 0DTE trades on Fed news. 45 DTE can usually survive it.
+    elif len(danger_headlines) > 0:
         decision = "⚠️ CAUTION"
-        reason = "Fed News detected, but 45 DTE timeframe allows room."
+        reason = "Fed News detected. Check calendar."
 
-    # 5. BUILD REPORT
+    # 6. BUILD REPORT
     msg = (
-        f"🦅 **SENTINEL: WEEKLY RUNG ({TARGET_DTE} DTE)**\n"
+        f"🦅 **SENTINEL: 15 DELTA ({TARGET_DTE} DTE)**\n"
         f"-----------------------------\n"
         f"🚦 **DECISION: {decision}**\n"
         f"Reason: {reason}\n"
@@ -83,11 +87,12 @@ def run_analysis():
         f"📉 **MARKET DATA**\n"
         f"SPX: {spx:.2f} | VIX: {vix:.2f}\n"
         f"-----------------------------\n"
-        f"🎯 **ENTRY STRIKES (10Δ)**\n"
+        f"🎯 **ENTRY STRIKES (15Δ)**\n"
         f"Call: {call_strike} (+{expected_range:.0f} pts)\n"
         f"Put:  {put_strike} (-{expected_range:.0f} pts)\n"
         f"-----------------------------\n"
-        f"🗓️ **EXPIRY TARGET:** ~6 Weeks out\n"
+        f"🗓️ **EXPIRY TARGET:**\n"
+        f"👉 {formatted_expiry}\n"
     )
     
     send_alert(msg)
